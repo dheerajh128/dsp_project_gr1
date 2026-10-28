@@ -1,0 +1,9 @@
+Previous 4-second experiment (Milestone 3, single-record):
+Samples/window: 1440
+Dataset size: 180
+Train/test: 126/54
+Accuracy: 83.33%
+Confusion matrix (labels ['BW', 'MA', 'PLI']):
+[[14  4  0]
+ [ 5 13  0]
+ [ 0  0 18]]

@@ -1,0 +1,429 @@
+
+
+===== PAGE 1 =====
+ 
+DEPARTMENT OF ELECTRONICS AND COMMUNICATION ENGINEERING 
+[Motilal Nehru National Institute Of Technology] 
+ 
+B.Tech. — Electronics and Communication Engineering 
+Course: Digital Signal Processing  [ECN15101] 
+PROJECT REPORT 
+Intelligent ECG Noise Classification and Dynamic DSP 
+Filtering 
+Group – 1 
+Submitted by 
+S. 
+No. 
+Name of Student 
+Roll Number 
+1 
+Ayush Kumar Jha 
+20244050 
+2 
+Bayapureddy Dheerajh Reddy 
+20244051 
+3 
+Bhaskar Jalan 
+20244052 
+4 
+Bhawani Singh Shekhawat 
+20244053 
+ 
+ 
+ 
+
+
+===== PAGE 2 =====
+Page 2 
+INDEX 
+Section 
+Page 
+1 
+Introduction .......................................................................................................................................... 3 
+2 
+Methodology ......................................................................................................................................... 3 
+2.1 Overview of the Pipeline ............................................................................................................... 3 
+2.2 Data and Dataset Preparation ........................................................................................................ 3 
+2.3 Spectrogram Generation ................................................................................................................ 4 
+2.4 CNN Classifier and Training ........................................................................................................ 4 
+2.5 DSP Filter Bank ............................................................................................................................ 4 
+2.6 Performance Evaluation ................................................................................................................ 5 
+3 
+Algorithm .............................................................................................................................................. 5 
+3.1 DSP Processing Steps ................................................................................................................... 5 
+3.2 CNN Processing Steps .................................................................................................................. 5 
+3.3 Inference and Filter Routing ......................................................................................................... 5 
+3.4 The CNN Algorithm in Brief ........................................................................................................ 5 
+4 
+Results ................................................................................................................................................... 5 
+4.1 Classifier Experiments .................................................................................................................. 5 
+4.2 End-to-End DSP Filtering Verification ......................................................................................... 6 
+4.3 Observations and Limitations ....................................................................................................... 7 
+5 
+Conclusion ............................................................................................................................................. 7 
+6 
+References ............................................................................................................................................. 7 
+
+
+===== PAGE 3 =====
+Page 3 
+1. Introduction 
+Electrocardiogram (ECG) recordings are low-amplitude signals that are routinely corrupted by baseline wander (BW), 
+muscle artifact (MA) and power-line interference (PLI). The three disturbances occupy different spectral regions: BW 
+is a slow drift below about 0.5 Hz, PLI is a narrow line at the 50 Hz mains frequency, and MA is broadband 
+electromyographic (EMG) activity that overlaps the ECG band. Each therefore needs a different filter, and an 
+inappropriate filter distorts the ST segment and QRS morphology. Noise identification is a necessary preprocessing step 
+before reliable downstream ECG analysis [6], and engineered signal-quality features with classical machine learning 
+have been used for it [7]. In wearable and continuous monitoring the volume of data is too large for an operator to 
+choose a filter segment by segment, and manual trial and error is slow and not reproducible. 
+The problem belongs to digital signal processing on two counts. Recognising the noise depends on spectral analysis: 
+the short-time Fourier transform (STFT) shows how the energy of each noise class is distributed over time and 
+frequency. Removing the noise depends on classical filter design, where Butterworth and IIR notch responses are 
+analytically specified and their effect on the ECG can be predicted and checked in the frequency domain. 
+The usual practice is to apply one fixed filter to every segment or to select a filter by hand, whereas the literature stresses 
+that suppression should be matched to the noise scenario [5]. The first approach tried in this project was a Random 
+Forest classifier on six hand-crafted features (RMS, variance, kurtosis, and low-frequency, 50 Hz and high-frequency 
+band power). With a record-level train/test split it reached only about 77.7%, with persistent BW–MA confusion. Global 
+scalar features discard how energy is distributed jointly over time and frequency, and noise classes with overlapping 
+spectra need pattern recognition in the time-frequency plane. 
+The project therefore separates recognition from restoration. A convolutional neural network (CNN) identifies the 
+dominant noise type from a spectrogram of the ECG window, and the predicted class selects exactly one fixed DSP 
+filter. The CNN is an ImageNet-pretrained ResNet-50 adapted by transfer learning; it is an established architecture and 
+was not designed by the group. Its role is confined to classification: it learns the visual texture of each class (BW as 
+low-frequency energy, PLI as a narrow line at 50 Hz, MA as diffuse broadband energy) and supplies the only control 
+signal in the pipeline. Restoration stays with classical filters so that its behaviour remains predictable. High-pass filtering 
+is reported to work well against baseline wander [9], and notch filtering for PLI is discussed in [8], which also notes 
+frequency mismatch and ringing with fixed designs. Selecting the filter with a neural network follows [1], CNN-based 
+detection of baseline and mains noise is reported in [2], and spectrogram input to a CNN follows [4]. The objectives are 
+to build a labelled noisy-ECG dataset, classify the dominant noise on unseen patients, route each window to the matching 
+filter, and verify the restoration in the time and frequency domains. 
+2. Methodology 
+2.1 Overview of the Pipeline 
+The complete pipeline is shown in Figure 1. Each fixed-length window of noisy ECG is converted to a spectrogram, 
+classified by the network, and filtered by the DSP filter associated with the predicted class. The classifier output is the 
+only control signal; the filter designs are fixed. 
+ 
+Figure 1. Block diagram of the classification-driven dynamic filtering pipeline. 
+2.2 Data and Dataset Preparation 
+Clean ECG is taken from the MIT-BIH Arrhythmia Database [11], [12], sampled at Fs = 360 Hz, and serves as the noise-
+free reference. Real BW and MA noise recordings come from the MIT-BIH Noise Stress Test Database [10], [12]. The 
+PLI component is a 50 Hz mains interference signal [TO BE FILLED: state whether it was taken from the noise database 
+or generated synthetically as n[t] = A·sin(2π·50·t/Fs)]. Each noise class was injected into clean ECG at controlled SNRs 
+of 0, 5, 10 and 15 dB, giving 20 hours of labelled synthetic mixtures. The noise is scaled before addition so that the 
+mixture has the required SNR: 
+ 
+xn[n] = x[n] + α·w[n],   α = ( Σx²[n] / ( 10S/10·Σw²[n] ) )1/2 
+(1) 
+
+
+===== PAGE 4 =====
+Page 4 
+where x[n] is the clean ECG, w[n] the unscaled noise record, α the scale factor and S the target signal-to-noise ratio in 
+dB. Because the injected class and SNR are known, every window has an exact label, and the SNR sweep covers 
+contamination from severe (0 dB) to mild (15 dB). The data were split by patient so that test windows come from 
+patients not seen in training. The held-out test set contains 4,500 windows, 1,500 per class. [TO BE FILLED: window 
+length, and number of patients and windows in the training and validation sets.] 
+2.3 Spectrogram Generation 
+Each window is converted to a time-frequency image so that a 2D CNN can be applied. The STFT and the log-magnitude 
+spectrogram are 
+ 
+X(m,k) = Σn x[n + mH]·w[n]·e−j2πkn/N,   n = 0, 1, …, N−1 
+(2) 
+ 
+S(m,k) = log |X(m,k)| 
+(3) 
+where w[n] is the analysis window of length N, H the hop size, m the frame index and k the frequency-bin index; the 
+bin spacing is Δf = Fs/N. The log-magnitude image is normalised, resized to the ResNet-50 input resolution and copied 
+to three channels to match the pretrained RGB input layer. [TO BE FILLED: window type, N, H and image size.] In 
+these images BW appears as low-frequency energy, PLI as a narrow horizontal line at 50 Hz, and MA as diffuse 
+broadband energy, which gives the network a distinct texture for each class. 
+2.4 CNN Classifier and Training 
+The classifier is a ResNet-50 pretrained on ImageNet. The pretrained backbone supplies general convolutional feature 
+extractors (edges, textures, ridge patterns), which reduces the amount of labelled data needed and speeds convergence 
+[3]. The original classification layer is replaced by a new head: a 512-unit dense bottleneck, dropout of 0.5, and a 3-
+class output layer. Training has two stages. In the warm-up stage (5 epochs) the backbone is frozen and only the head 
+is trained, so that the random initial gradients of the head do not corrupt the pretrained weights. In the fine-tuning stage 
+(45 epochs) the backbone is unfrozen and trained end to end at a low learning rate. [TO BE FILLED: optimizer, learning 
+rate and batch size; the 141 evaluation steps for 4,500 windows suggest a batch size of 32, to be confirmed.] The output 
+layer applies a softmax to the logits z, and the loss is cross-entropy with L2 weight regularisation and label smoothing: 
+ 
+pc = exp(zc) / Σj exp(zj) 
+(4) 
+ 
+L = − Σc ỹc log pc + λ‖W‖²,   ỹc = (1 − ε)·yc + ε/C 
+(5) 
+The sums run over the C = 3 classes; yc the one-hot target, ε = 0.1 the smoothing factor and λ = 1e-4 the L2 weight. L2 
+regularisation penalises large weights and limits effective model complexity, and label smoothing softens the targets so 
+that the network does not become over-confident on borderline BW/MA windows. Three configurations were compared 
+(Table 1). 
+Table 1. Classifier configurations compared. 
+ID 
+Configuration 
+Description 
+A 
+Baseline ResNet-50 
+Head as described above (512-unit dense layer, dropout 0.5) 
+B 
+A + L2 + label smoothing 
+L2 weight regularisation (1e-4) and label smoothing (0.1) added to A 
+C 
+64-unit bottleneck + dropout 
+Dense layer reduced to 64 units with dropout 0.5, as an alternative anti-
+overfitting strategy 
+ 
+2.5 DSP Filter Bank 
+The predicted class selects exactly one filter, listed in Table 2. All three are fixed, analytically specified designs. 
+Table 2. Class-to-filter routing. 
+Class 
+Filter 
+Purpose 
+BW 
+4th-order Butterworth high-pass, 0.5 Hz 
+Removes slow drift and the DC component while leaving the ST 
+segment intact 
+MA 
+4th-order Butterworth low-pass, 35 Hz 
+Attenuates high-frequency EMG jitter while retaining the QRS 
+energy band 
+PLI 
+IIR notch, 50 Hz, Q = 30 
+Rejects mains hum with a narrow stop band of about f0/Q ≈ 1.7 
+Hz 
+ 
+The Butterworth magnitude response of order N = 4 and the second-order IIR notch are 
+ 
+|H(jΩ)|² = 1 / (1 + (Ω/Ωc)2N) 
+(6) 
+ 
+H(z) = ( 1 − 2cos ω0·z−1 + z−2 ) / ( 1 − 2r cos ω0·z−1 + r²z−2 ),   ω0 = 2πf0/Fs 
+(7) 
+where Ωc is the cutoff frequency (for the high-pass filter Ω/Ωc is inverted), f0 = 50 Hz is the notch frequency and r < 1 
+sets the pole radius, chosen so that the −3 dB bandwidth is f0/Q. The Butterworth response has a flat passband, and 
+applying it forward and backward gives zero phase distortion [TO BE CONFIRMED: forward-backward filtering was 
+used]. 
+
+
+===== PAGE 5 =====
+Page 5 
+2.6 Performance Evaluation 
+The classifier is evaluated on the held-out test patients using accuracy, balanced accuracy (mean recall over the three 
+classes), and per-class precision, recall and F1-score from the classification report. The restoration stage is verified with 
+the optimal model by routing representative contaminated windows through the whole pipeline and comparing the input 
+and restored signals in the time domain and by FFT magnitude spectra, one example per noise class. 
+3. Algorithm 
+3.1 DSP Processing Steps 
+Step 1: 
+Load the clean ECG records (Fs = 360 Hz) and the BW, MA and PLI noise signals. 
+Step 2: 
+Divide the signals into fixed-length windows. 
+Step 3: 
+For each class c ∈ {BW, MA, PLI} and each SNR ∈ {0, 5, 10, 15} dB, scale the noise using Eq. (1), add it 
+to the clean window and label the window with c. 
+Step 4: 
+Split the windows by patient into training, validation and held-out test sets. 
+Step 5: 
+Compute the STFT (Eq. 2) and the log-magnitude spectrogram (Eq. 3) of each window; normalise, resize 
+and copy to three channels. 
+3.2 CNN Processing Steps 
+Step 6: 
+Load ResNet-50 with ImageNet weights and replace the classification layer by the new head (512-unit dense 
+layer, dropout 0.5, 3-class softmax output). 
+Step 7: 
+Warm-up: freeze the backbone and train the head for 5 epochs. 
+Step 8: 
+Fine-tuning: unfreeze the backbone and train end to end for 45 epochs at a low learning rate, minimising the 
+loss of Eq. (5) and monitoring validation accuracy. 
+Step 9: 
+Evaluate on the held-out test patients and record accuracy, balanced accuracy and the classification report. 
+3.3 Inference and Filter Routing 
+Step 10: For a new noisy window, compute its spectrogram (Step 5) and obtain the class probabilities pc; the predicted 
+class is ĉ = argmax pc. 
+Step 11: Route the window: BW → 0.5 Hz high-pass, MA → 35 Hz low-pass, PLI → 50 Hz notch (Table 2), and 
+apply the selected filter. 
+Step 12: Output the restored window and inspect it in the time domain and by its FFT magnitude spectrum. 
+3.4 The CNN Algorithm in Brief 
+Table 3 summarises how the ResNet-50 classifier processes a spectrogram. Only the components used in the project are 
+listed. 
+Table 3. Components of the ResNet-50 classifier and their role. 
+Component 
+Role in this project 
+Input 
+A 3-channel log-magnitude spectrogram image of one ECG window. 
+Convolution, kernels, 
+feature maps 
+Learned kernels slide over the image and compute local weighted sums; the output of each kernel is a 
+feature map. Early layers respond to edges and ridges, deeper layers to larger textures such as 
+broadband energy or a narrow line at 50 Hz. 
+Activation (ReLU) 
+Non-linearity applied after the convolutions, as in the standard ResNet-50. 
+Pooling 
+Max pooling and global average pooling reduce the spatial size and give one feature vector per image. 
+Residual connections 
+Skip connections add a block’s input to its output, which makes the 50-layer network trainable. 
+Fully connected layers 
+512-unit dense bottleneck with dropout 0.5, then a 3-unit softmax output giving BW, MA or PLI. 
+ 
+4. Results 
+4.1 Classifier Experiments 
+The three configurations of Table 1 were evaluated on the same held-out test patients (4,500 windows, 1,500 per class). 
+Table 4 gives the overall results and Table 5 the per-class report. For reference, the earlier Random Forest baseline is 
+included. 
+
+
+===== PAGE 6 =====
+Page 6 
+Table 4. Test accuracy on held-out patients. 
+ID 
+Configuration 
+Test accuracy 
+Balanced accuracy 
+– 
+Random Forest, six features (record-level split) 
+about 77.7% 
+not reported 
+A 
+Baseline ResNet-50 
+89.67% 
+89.67% 
+B 
+A + L2 (1e-4) + label smoothing (0.1) 
+90.87% 
+90.87% 
+C 
+64-unit bottleneck + dropout 0.5 
+89.80% 
+89.80% 
+ 
+Table 5. Per-class precision (P), recall (R) and F1-score (F1) on the held-out test patients. 
+ 
+A: Baseline 
+B: + L2 + label smoothing 
+C: 64 units + dropout 
+Class 
+P 
+R 
+F1 
+P 
+R 
+F1 
+P 
+R 
+F1 
+BW 
+0.86 
+0.82 
+0.84 
+0.88 
+0.85 
+0.86 
+0.82 
+0.90 
+0.86 
+MA 
+0.83 
+0.87 
+0.85 
+0.85 
+0.88 
+0.87 
+0.89 
+0.80 
+0.84 
+PLI 
+1.00 
+0.99 
+1.00 
+1.00 
+0.99 
+1.00 
+1.00 
+0.99 
+0.99 
+Macro 
+avg 
+0.90 
+0.90 
+0.90 
+0.91 
+0.91 
+0.91 
+0.90 
+0.90 
+0.90 
+ 
+Baseline (A). Transfer learning on spectrograms detects the noise type well. PLI is essentially solved (precision 1.00, 
+recall 0.99) and the errors are concentrated in BW–MA confusion (F1 of 0.84 and 0.85). Validation accuracy plateaued 
+while training performance kept improving, which indicates overfitting: the network began memorising patient-specific 
+QRS morphology instead of noise signatures that generalise across patients. 
+Best model (B). L2 regularisation and label smoothing stabilised the validation curves and raised accuracy to 90.87%, 
+the highest of all configurations. Both hard classes improved (BW F1 0.86, MA F1 0.87) while PLI stayed at F1 1.00. 
+The gain over the baseline is 1.20 percentage points. It is consistent across BW and MA, but each configuration was run 
+once, so it should be read as an improvement and not as a statistically tested difference. 
+Reduced capacity (C). Shrinking the dense layer to 64 units with dropout 0.5 gave 89.80%, 1.07 points below B. The 
+error balance shifted: BW recall rose to 0.90 but BW precision fell to 0.82, and MA recall dropped to 0.80. Reduced 
+capacity appears to limit the separation of the two overlapping classes, so capacity restriction was less effective than 
+weight and target regularisation. The change is a trade-off between classes and not a collapse, since PLI stayed at F1 
+0.99. 
+Expected versus obtained. The aim was to move past the 90% plateau; only configuration B does so (90.87%), while 
+A and C stay just below it. Compared with the Random Forest (about 77.7%), the CNN raised noise-type accuracy by 
+more than 12 points. This comparison is indicative only, because the Random Forest was evaluated with a record-level 
+split and the CNN on held-out patients. The contribution of the CNN is the classification stage: it learns time-frequency 
+texture that six scalar features could not represent. 
+4.2 End-to-End DSP Filtering Verification 
+With the best model, representative contaminated windows were routed through the full pipeline (Figure 2); each row 
+is one noise class, showing input and restored signals in time and as FFT magnitude spectra. 
+ 
+Figure 2. Time- and frequency-domain verification of the routed DSP filters for BW, MA and PLI. 
+
+
+===== PAGE 7 =====
+Page 7 
+BW → high-pass. The input drifts by roughly 2 mV and its spectrum is dominated by a large 0 Hz component 
+(magnitude above 1,200). After filtering, the baseline is re-centred around 0 mV and the R-peaks stand out. The vertical 
+scale of the restored spectrum falls to about 140: the spike is removed and the cardiac harmonics between roughly 1 and 
+12 Hz that it masked become visible. 
+MA → low-pass. The input shows dense high-frequency jitter and the restored spectrum has a suppressed tail above 35 
+Hz. This is the least dramatic of the three cases: MA is broadband and overlaps the ECG band, so jitter below 35 Hz 
+remains after filtering. 
+PLI → notch. The input spectrum contains a narrow 50 Hz line (magnitude around 220) and a dense sinusoidal ripple 
+in the time domain. After the IIR notch the line is removed while the surrounding spectrum and the QRS amplitude are 
+preserved. 
+4.3 Observations and Limitations 
+• Errors of the best model are confined to BW–MA; PLI is classified almost perfectly. 
+• Each configuration was trained once, so differences of about one percentage point are not statistically tested. 
+• Restoration was assessed visually and spectrally, with one example per class. Quantitative measures (RMSE, SNR 
+improvement) and a comparison with fixed-filter baselines, which were planned in the original proposal, were 
+not carried out. 
+• The low-pass filter cannot remove MA that lies inside the ECG band. 
+5. Conclusion 
+A hybrid pipeline was built in which a CNN recognises the noise type and a matched classical filter removes it. DSP 
+concepts were used at every stage: SNR-controlled noise injection, STFT spectrograms as the network input, 
+Butterworth and IIR notch filter design for restoration, and FFT spectra for verification. An ImageNet-pretrained 
+ResNet-50, fine-tuned in two stages with L2 regularisation and label smoothing, identified the noise type with 90.87% 
+accuracy on unseen patients, compared with about 77.7% for the earlier Random Forest. PLI was classified almost 
+perfectly and the residual error is confined to BW–MA. Reducing the dense layer to 64 units with heavy dropout 
+(89.80%) did not outperform weight and target regularisation. Since restoration uses fixed filters, its behaviour is 
+predictable and can be verified spectrally. 
+Future work should add quantitative restoration metrics (RMSE, SNR improvement, QRS-morphology preservation) 
+over the full test set, compare the adaptive pipeline with fixed-filter baselines, and repeat the training runs to quantify 
+variance. 
+6. References 
+[1] Pravin and Ojha, 2022, neural-network-based selection of the denoising filter for noisy ECG, arXiv:2202.00579. 
+[2] Caldas et al., 2023, detection of wandering baseline and AC interference in ECG with a 1D CNN, Springer, 
+Studies in Computational Intelligence. 
+[3] “Transfer learning in ECG diagnosis: Is it effective?”, 2025, PMC12088039. 
+[4] Bammara and Mousselmal, 2025, ECG classification using 1D–2D transformation and CNN, M2 thesis, 
+University of Bordj Bou Arréridj. 
+[5] Self-attention-driven ECG denoising, Signals, vol. 6, no. 2, article 26, 2025. 
+[6] Satija, Ramkumar and Manikandan, 2018, IEEE Reviews in Biomedical Engineering, DOI: 
+10.1109/RBME.2018.2810957. 
+[7] Li, Rajagopalan and Clifford, 2014, Computer Methods and Programs in Biomedicine, DOI: 
+10.1016/j.cmpb.2014.09.002. 
+[8] Chen et al., 2019, IEEE Access, DOI: 10.1109/ACCESS.2019.2944027. 
+[9] Romero et al., baseline wander removal, arXiv:1807.11359. 
+[10] Moody, Muldrow and Mark, 1984, A noise stress test for arrhythmia detectors. 
+[11] Goldberger et al., 2000, PhysioBank / PhysioNet, DOI: 10.1161/01.CIR.101.23.e215. 
+[12] MIT-BIH Arrhythmia Database, physionet.org/content/mitdb/1.0.0/; MIT-BIH Noise Stress Test Database, 
+physionet.org/content/nstdb/1.0.0/. 
+Note: entries give the details available in the project documents; [TO BE FILLED: full titles, author initials and venue details] before 
+submission. 

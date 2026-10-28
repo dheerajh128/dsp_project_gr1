@@ -1,0 +1,7 @@
+Previous 2-second (initial, multi-record) experiment:
+Dataset size: 900, Test size: 180
+Accuracy: 85.00%
+Confusion matrix (labels ['BW', 'MA', 'PLI']):
+[[43 17  0]
+ [10 50  0]
+ [ 0  0 60]]

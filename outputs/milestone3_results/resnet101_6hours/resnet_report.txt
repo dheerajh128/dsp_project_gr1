@@ -1,0 +1,12 @@
+Accuracy: 0.8765
+Balanced Accuracy: 0.8765
+
+              precision    recall  f1-score   support
+
+          BW       0.77      0.89      0.83       448
+          MA       0.87      0.74      0.80       448
+         PLI       1.00      1.00      1.00       448
+
+    accuracy                           0.88      1344
+   macro avg       0.88      0.88      0.88      1344
+weighted avg       0.88      0.88      0.88      1344

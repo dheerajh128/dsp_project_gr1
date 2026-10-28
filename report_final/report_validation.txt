@@ -1,0 +1,79 @@
+HEARTLINE report validation
+Generated: 28 October 2026
+DOCX: D:\dsp_project\report_final\DSP_Project_Report.docx
+PDF:  D:\dsp_project\report_final\DSP_Project_Report.pdf
+Pages: 25 (A4)
+
+Reference PDFs
+- dspreportdemo.pdf was located at C:\Users\HP\Downloads\dspreportdemo.pdf.
+  It is a 19-page phone scan (Adobe Scan). Pages are images, so text could not be extracted.
+  Page 1 was rendered and inspected. It is a centred technical-report cover: short header,
+  title, MNNIT seal, institute line, team, "Submitted to", and a ruled footer.
+  The sample is a different project (deepfake detection, DIP laboratory, session 2025-26,
+  Dr. Sumit Kumar Jha). Those names, the session year, and "DIP Laboratory" were not copied.
+- Complete_Project_Report (1).pdf was located at C:\Users\HP\Downloads\Complete_Project_Report (1).pdf.
+  Seven pages, Word 2021, title "Intelligent ECG Noise Classification and Dynamic DSP Filtering",
+  author Group 1. Full text was extracted and used for institution, students, course code,
+  filter specification, block diagram, filter figure, and the reference list.
+  Several of its experimental claims do not match files in the repository. Those conflicts
+  are written into the report (Section 5.4 and Appendix 10.2) rather than resolved by picking one number.
+
+Cover
+- Title on page 1: INTELLIGENT ECG NOISE CLASSIFICATION AND DYNAMIC DSP FILTERING.
+- Institutional logo: cropped from page 1 of dspreportdemo.pdf (the scanned MNNIT seal,
+  including gear, book, lamp, atom, and ribbon). Not redrawn. File: report_final/assets/mnnit_logo.png.
+  Visually checked on the rendered PDF cover. The scan has the original print texture.
+- Google Colab QR: the image supplied in the chat was copied to report_final/assets/colab_qr.png
+  and placed on the cover beside the submission block. It was not regenerated.
+  Cover page contains two images (logo and QR).
+- Submission text, exact spelling:
+  Submitted to
+  Dr. Shishir Maheshwari
+  Prof. V. Krishna Rao Kandanvli
+- Students and roll numbers are those printed on page 1 of Complete_Project_Report.pdf.
+- Session year and individual contribution assignments are omitted because neither document records them for this project.
+
+Figures included (19)
+See figure_inventory.csv. Group A confusion matrices, SNR plots, and importance plots are included
+for improved 2 s and final 4 s. Group B waveform, window, feature, confusion, and importance
+figures are included and captioned as exploratory Clean versus electrode-motion, not as BW/MA/PLI.
+CNN, ResNet-101 (6 h and 10 h), the prior-report block diagram, and the prior-report filter
+figure are included. Normalised duplicates and the separate single-window PNGs were left out
+because clean_vs_noisy.png and windowing_example.png already show those windows.
+
+Numerical results checked against files
+- Previous 4 s: accuracy 0.8333, matrix [[14,4,0],[5,13,0],[0,0,18]], 180 windows, 54 test.
+- Previous 2 s: accuracy 0.8500, matrix [[43,17,0],[10,50,0],[0,0,60]], 900 windows, 180 test.
+- Improved 2 s: accuracy 0.7766, macro F1 0.7766, untuned baseline 0.7571, test 1128.
+- Final 4 s: Gradient Boosting accuracy 0.8005, macro F1 0.8001, test 2256.
+  Reloading the joblib model reproduced 0.80053. Per-SNR recomputation: 0.8617, 0.8333, 0.7766, 0.7305.
+- CNN 6 h: 0.8772 on 1344 windows. ResNet-101 6 h: 0.8765 on 1344. ResNet-101 10 h: 0.8590 on 2256.
+- Exploratory forest: accuracy 1.0000 on 271 windows. Not used as a three-class result.
+- Saved model types were loaded: final 4 s file is HistGradientBoostingClassifier, not a random forest.
+
+Unresolved discrepancies
+- PDF ResNet-50 scores 89.67%, 90.87%, 89.80% have no saved report. Not used as primary results.
+- PDF head (512 units, dropout 0.5, 45 fine-tune epochs) does not match main_cnn.py
+  (128 units, dropout 0.4, 15 fine-tune epochs). The script's output folder resnet50_opt2_opt3 is absent.
+- PDF calls the 77.7% model a six-feature forest. The saved improved-2 s model has 10 features and accuracy 0.7766.
+- Final 4 s filename says random_forest. The object is histogram gradient boosting.
+  The importance PNG in that folder is titled as a random forest.
+- crnn_6hours, resnet50_50ep, and resnet50_opt2_opt3 are not in the repository.
+- CNN and ResNet-101 training scripts, epoch counts, and learning curves were not saved.
+- No filter implementation. Forward-backward filtering remains unconfirmed, as in the earlier PDF.
+- Improved 2 s per-SNR plot has no saved numeric table, so those four points are not quoted.
+- List of figures and list of tables are written as captions without page numbers.
+  The section index is a Word TOC and does have page numbers.
+- dspreportdemo.pdf could not be OCR'd in full. Formatting follows the inspected cover and the
+  body pages that were rendered (header rule, footer with institute and page number, numbered
+  chapters, navy table headers). It is not a facsimile of the scanned notebook.
+
+Placeholders
+- No fake registration numbers, session year, or contribution column.
+- No invented filter SNR gains, no invented ResNet-50 test score, no invented CRNN result.
+- References keep the incomplete fields that the earlier PDF already marked as incomplete.
+
+Rendering
+- Cover checked visually: title, seal, QR, both supervisors, and the four names are on page 1.
+- PDF text search confirmed the title, both supervisor names, and both images on page 1.
+- Original datasets, models, and experiment outputs were not modified.

@@ -1,0 +1,15 @@
+Model: Gradient Boosting
+Accuracy: 0.8005
+Balanced Accuracy: 0.8005
+Macro F1: 0.8001
+Weighted F1: 0.8001
+
+              precision    recall  f1-score   support
+
+          BW       0.72      0.66      0.69       752
+          MA       0.69      0.74      0.71       752
+         PLI       1.00      1.00      1.00       752
+
+    accuracy                           0.80      2256
+   macro avg       0.80      0.80      0.80      2256
+weighted avg       0.80      0.80      0.80      2256
