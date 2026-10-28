@@ -1,4 +1,4 @@
-# Intelligent ECG Noise Classification and Dynamic DSP Filtering
+# HEARTLINE - Intelligent ECG Noise Classification and Dynamic DSP Filtering
 
 A Digital Signal Processing (DSP) project that combines **deep learning and classical digital filters** to automatically identify noise in ECG signals and select an appropriate filter for restoration.
 
